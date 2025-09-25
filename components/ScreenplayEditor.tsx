@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { AlignLeft, Undo, Redo } from "lucide-react";
+import { AlignLeft, Undo, Redo, Upload } from "lucide-react";
 import { parseAndFormat } from "@/lib/screenplay-parser";
 import { useToast } from "@/hooks/use-toast";
+import mammoth from 'mammoth/mammoth.browser';
 
 interface ScreenplayEditorProps {
   content: string;
@@ -183,78 +184,125 @@ export default function ScreenplayEditor({ content, onContentChange }: Screenpla
     return () => clearTimeout(timer);
   }, [content]);
 
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (file: File) => {
+    if (!file) return;
+
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+
+    try {
+      let textContent = '';
+      if (fileExtension === 'txt') {
+        textContent = await file.text();
+      } else if (fileExtension === 'docx') {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        textContent = result.value;
+      } else {
+        toast({
+          title: "خطأ في نوع الملف",
+          description: "الرجاء رفع ملف .txt أو .docx فقط.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const formatted = parseAndFormat(textContent);
+      if (editorRef.current) {
+        editorRef.current.innerHTML = formatted;
+        onContentChange(textContent);
+        toast({
+          title: "تم تحميل الملف بنجاح",
+          description: `تم تحميل وتنسيق ${file.name} تلقائياً.`,
+        });
+      }
+    } catch (error) {
+      console.error("Error processing file:", error);
+      toast({
+        title: "خطأ في معالجة الملف",
+        description: "حدث خطأ أثناء قراءة الملف أو تنسيقه.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    handleFile(file);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFile(file);
+    }
+  };
+
   return (
     <>
       {/* Toolbar */}
       <div className="toolbar flex items-center justify-between">
         <div className="flex items-center space-x-2 space-x-reverse">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleFormat}
-            data-testid="button-format"
-          >
+          <Button variant="ghost" size="sm" onClick={handleFormat} data-testid="button-format">
             <AlignLeft className="w-4 h-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleUndo}
-            disabled={undoStack.length <= 1}
-            data-testid="button-undo"
-          >
+          <Button variant="ghost" size="sm" onClick={handleUndo} disabled={undoStack.length <= 1} data-testid="button-undo">
             <Undo className="w-4 h-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRedo}
-            disabled={redoStack.length === 0}
-            data-testid="button-redo"
-          >
+          <Button variant="ghost" size="sm" onClick={handleRedo} disabled={redoStack.length === 0} data-testid="button-redo">
             <Redo className="w-4 h-4" />
           </Button>
+          <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} data-testid="button-upload">
+            <Upload className="w-4 h-4" />
+          </Button>
+          <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept=".txt,.docx" style={{ display: 'none' }} />
         </div>
         <div className="text-sm text-muted-foreground">
           تنسيق تلقائي مُفعَّل
         </div>
       </div>
 
-      {/* Main Editor */}
+      {/* File Drop Zone & Editor */}
       <div
-        ref={editorRef}
-        className="editor-container screenplay-container"
-        contentEditable="true"
-        onInput={handleInput}
-        onPaste={handlePaste}
-        data-testid="editor-main"
-        suppressContentEditableWarning={true}
-        dangerouslySetInnerHTML={{
-          __html: parseAndFormat(`بسم الله الرحمن الرحيم
-
-مشهد 1 - خارجي - نهار
-شارع في وسط المدينة
-
-يسير أحمد في شارع مزدحم، يحمل حقيبة صغيرة ويبدو عليه القلق. السيارات تمر بسرعة والناس يتحركون في جميع الاتجاهات. يتوقف أمام مقهى صغير ويتردد للحظة.
-
-أحمد:
-(يتحدث إلى نفسه)
-هل هذا هو المكان الصحيح؟ يجب أن أتأكد من العنوان مرة أخرى.
-
-يخرج هاتفه المحمول ويتحقق من الرسالة النصية. يبتسم ويدخل المقهى بثقة أكبر.
-
-قطع إلى:
-
-مشهد 2 - داخلي - نهار
-داخل المقهى
-
-المقهى دافئ ومريح، مليء بالأشخاص الذين يعملون على أجهزة الكمبيوتر المحمولة أو يتناولون القهوة مع الأصدقاء. أحمد يبحث بعينيه عن شخص محدد.
-
-فاطمة:
-(تلوح له من الطاولة البعيدة)
-أحمد! هنا!`)
-        }}
-      />
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`editor-container screenplay-container ${isDragging ? 'drag-over' : ''}`}
+        data-testid="editor-drop-zone"
+      >
+        <div
+          ref={editorRef}
+          contentEditable="true"
+          onInput={handleInput}
+          onPaste={handlePaste}
+          data-testid="editor-main"
+          suppressContentEditableWarning={true}
+          dangerouslySetInnerHTML={{ __html: parseAndFormat(``) }} // Start empty
+        />
+        {isDragging && (
+          <div className="file-drop-zone-overlay">
+            <Upload className="w-12 h-12 text-primary" />
+            <p>أفلت الملف هنا (.txt, .docx)</p>
+          </div>
+        )}
+      </div>
     </>
   );
 }
