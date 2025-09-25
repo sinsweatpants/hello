@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>محرر السيناريو العربي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Amiri', serif;
+      }
+      /* Custom utility to handle A4 paper dimensions */
+      .page-a4 {
+        width: 21cm;
+        min-height: 29.7cm;
+      }
+       /* For print, ensure margins are set correctly and shadows are removed */
+      @media print {
+        body {
+          margin: 0;
+          padding: 0;
+        }
+        .no-print {
+          display: none;
+        }
+        .page-container {
+          box-shadow: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        .page-a4 {
+          box-shadow: none !important;
+          border: none !important;
+        }
+      }
+
+      /* --- Visual Cursor for Empty Editor --- */
+      @keyframes blink-caret {
+        from, to { opacity: 0 }
+        50% { opacity: 1 }
+      }
+
+      /* The ::before pseudo-element acts as our custom cursor */
+      .editor-cursor.is-empty:focus::before {
+        content: "";
+        position: absolute;
+        top: 1in; /* Match padding-top */
+        right: 1.5in; /* Match padding-right because of dir="rtl" */
+        width: 2px;
+        height: 1.6em; /* Approximate line height for Amiri font */
+        background-color: #3b82f6; /* blue-500 */
+        animation: blink-caret 1.2s step-end infinite;
+      }
+
+      /* Hide the placeholder text when the editor is focused to avoid visual clash with the cursor */
+      .editor-cursor.is-empty:focus > [data-placeholder="true"] {
+        visibility: hidden;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.20.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

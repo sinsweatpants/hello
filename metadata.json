@@ -1,0 +1,5 @@
+{
+  "name": "Arabic Screenplay Editor",
+  "description": "A specialized editor for writing and formatting movie and TV screenplays in Arabic, following industry-standard layout rules. Users can type, paste, or upload text, and the application uses AI to automatically format it into a professional script.",
+  "requestFramePermissions": []
+}
