@@ -10,77 +10,87 @@ export function parseAndFormat(text: string): string {
 
   const lines = text.split('\n');
   let formattedHTML = '';
+  let i = 0;
 
-  for (let i = 0; i < lines.length; i++) {
+  while (i < lines.length) {
     const line = lines[i].trim();
+
     if (!line) {
-      formattedHTML += '<div class="action"><br></div>';
+      formattedHTML += '<div><br></div>';
+      i++;
       continue;
     }
 
-    // Basmala detection
+    // Basmala
     if (line.includes('بسم الله الرحمن الرحيم')) {
       formattedHTML += `<div class="basmala">${escapeHtml(line)}</div>`;
+      i++;
     }
-    // Scene header detection
-    else if (line.match(/^(مشهد|م\.)\s*\d+/)) {
-      const parts = line.split(/[\s-]+/);
+    // Scene Header
+    else if (line.match(/^(مشهد|م\.)\s*\d+/i)) {
+      const sceneLine = line;
+      const parts = sceneLine.split(/[\s-]+/);
       const sceneNum = parts.slice(0, 2).join(' ');
-      const timeLocation = parts.slice(2, 4).join(' - ');
-      let place = parts.slice(4).join(' ');
+      const timeAndSetting = parts.slice(2).join(' - ');
 
-      // Check if place is empty and next line exists (scene header spanning two lines)
-      if (!place && i + 1 < lines.length && lines[i + 1].trim() &&
-          !lines[i + 1].trim().match(/^(مشهد|م\.)\s*\d+/) &&
-          !lines[i + 1].trim().match(/^[أ-ي\s]+:$/)) {
-        i++;
-        place = lines[i].trim();
+      let location = '';
+      // Check if the next line is the location
+      if (i + 1 < lines.length && lines[i + 1].trim() && !lines[i+1].trim().match(/^(مشهد|م\.)\s*\d+/i) && !lines[i+1].trim().match(/^[أ-ي\s]+:$/) && !lines[i+1].trim().match(/(قطع إلى|انتقال إلى|قطع\.|انتقال|فيد إلى|فيد من)/)) {
+        location = lines[i + 1].trim();
+        i++; // Consume the location line
       }
 
       formattedHTML += `
         <div class="scene-header-container">
           <div class="scene-header-top-line">
             <span class="scene-header-1">${escapeHtml(sceneNum)}</span>
-            <span class="scene-header-2">${escapeHtml(timeLocation)}</span>
+            <span class="scene-header-2">${escapeHtml(timeAndSetting)}</span>
           </div>
-          <div class="scene-header-3">${escapeHtml(place)}</div>
+          <div class="scene-header-3">${escapeHtml(location)}</div>
         </div>`;
+      i++;
     }
-    // Transition detection
-    else if (line.match(/(قطع إلى|انتقال إلى|قطع\.|انتقال|فيد إلى|فيد من)/)) {
+    // Transition
+    else if (line.match(/(قطع إلى|انتقال إلى|قطع\.|انتقال|فيد إلى|فيد من)/i)) {
       formattedHTML += `<div class="transition">${escapeHtml(line)}</div>`;
+      i++;
     }
-    // Character name detection (line ending with colon or all caps)
-    else if (line.match(/^[أ-ي\s]+:$/) || (line === line.toUpperCase() && line.match(/^[أ-ي\s]+$/))) {
-      let dialogueBlock = `<div class="dialogue-block">`;
-      dialogueBlock += `<div class="character-name">${escapeHtml(line.replace(':', ''))}</div>`;
+    // Dialogue Block
+    else if (i + 1 < lines.length && (lines[i+1].trim().startsWith('(') || lines[i+1].trim())) {
+        // Potential character name if it's not a scene header or transition
+        const nextLine = lines[i+1].trim();
+        const isDialogue = !line.match(/^(مشهد|م\.)\s*\d+/i) &&
+                           !line.match(/(قطع إلى|انتقال إلى|قطع\.|انتقال|فيد إلى|فيد من)/i) &&
+                           (
+                             nextLine.length > 0 &&
+                             !nextLine.match(/^(مشهد|م\.)\s*\d+/i)
+                           );
 
-      // Check for parenthetical in next line
-      if (i + 1 < lines.length && lines[i + 1].trim().match(/^\(.+\)$/)) {
-        i++;
-        dialogueBlock += `<div class="parenthetical">${escapeHtml(lines[i].trim())}</div>`;
-      }
+        if (isDialogue) {
+            let dialogueBlock = `<div class="dialogue-block">`;
+            dialogueBlock += `<div class="character-name">${escapeHtml(line.replace(':', ''))}</div>`;
+            i++; // Move to the next line (parenthetical or dialogue)
 
-      // Get dialogue text from next lines until empty line or new element
-      while (i + 1 < lines.length && lines[i + 1].trim() &&
-             !lines[i + 1].trim().match(/^(مشهد|م\.)\s*\d+/) &&
-             !lines[i + 1].trim().match(/(قطع إلى|انتقال إلى|قطع\.|انتقال|فيد إلى|فيد من)/) &&
-             !lines[i + 1].trim().match(/^[أ-ي\s]+:$/)) {
-        i++;
-        const dialogueLine = lines[i].trim();
-        if (dialogueLine.match(/^\(.+\)$/)) {
-          dialogueBlock += `<div class="parenthetical">${escapeHtml(dialogueLine)}</div>`;
+            while (i < lines.length && lines[i].trim()) {
+                const currentDialogueLine = lines[i].trim();
+                if (currentDialogueLine.startsWith('(') && currentDialogueLine.endsWith(')')) {
+                    dialogueBlock += `<div class="parenthetical">${escapeHtml(currentDialogueLine)}</div>`;
+                } else {
+                    dialogueBlock += `<div class="dialogue-text">${escapeHtml(currentDialogueLine)}</div>`;
+                }
+                i++;
+            }
+            dialogueBlock += `</div>`;
+            formattedHTML += dialogueBlock;
         } else {
-          dialogueBlock += `<div class="dialogue-text">${escapeHtml(dialogueLine)}</div>`;
+             formattedHTML += `<div class="action">${escapeHtml(line)}</div>`;
+             i++;
         }
-      }
-
-      dialogueBlock += `</div>`;
-      formattedHTML += dialogueBlock;
     }
-    // Default to action
+    // Action
     else {
       formattedHTML += `<div class="action">${escapeHtml(line)}</div>`;
+      i++;
     }
   }
 

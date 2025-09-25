@@ -1,4 +1,3 @@
-
 export enum ElementType {
     BASMALA = 'BASMALA',
     SCENE_HEADING = 'SCENE_HEADING',
@@ -15,4 +14,9 @@ export interface ScreenplayElement {
     scene_number?: string;
     scene_time?: string;
     scene_location?: string;
+}
+
+declare module 'mammoth/mammoth.browser' {
+  const mammoth: any;
+  export = mammoth;
 }
